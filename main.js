@@ -12,7 +12,9 @@ const TOKEN_FILE = 'token.txt'; // Path to the file containing the JWT token
 // Load the JWT token from the file
 function loadToken() {
   try {
-    return fs.readFileSync(TOKEN_FILE, 'utf8').trim();
+    const token = fs.readFileSync(TOKEN_FILE, 'utf8').trim();
+    console.log(`Loaded token: ${token}`);
+    return token;
   } catch (error) {
     console.error(`Error reading token file (${TOKEN_FILE}):`, error);
     return null;
@@ -37,6 +39,11 @@ async function runNodeTests() {
     const response = await fetch(`${BACKEND_URL}/nodes`);
     const nodes = await response.json();
 
+    if (!nodes || nodes.length === 0) {
+      console.log('No nodes found.');
+      return;
+    }
+
     for (const node of nodes) {
       const latency = await testNodeLatency(node);
       console.log(`Node ${node.node_id} (${node.ip}) latency: ${latency}ms`);
@@ -46,7 +53,8 @@ async function runNodeTests() {
     }
     console.log('All node tests completed.');
   } catch (error) {
-    console.error('Error running node tests:', error);
+    console.error('Error running node tests, reconnecting...', error);
+    setTimeout(runNodeTests, 5000); // Reattempt after 5 seconds
   }
 }
 
@@ -55,14 +63,19 @@ async function testNodeLatency(node) {
   const start = Date.now();
   const timeout = 5000;
 
+  console.log(`Testing latency for node ${node.node_id} at IP ${node.ip}...`);
+
   try {
     await Promise.race([
       fetch(`http://${node.ip}`, { mode: 'no-cors' }), // Simple connectivity check
       new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), timeout)),
     ]);
 
-    return Date.now() - start; // Successful latency measurement
-  } catch {
+    const latency = Date.now() - start; // Successful latency measurement
+    console.log(`Node ${node.node_id} latency: ${latency}ms`);
+    return latency;
+  } catch (error) {
+    console.error(`Node ${node.node_id} failed to respond.`, error);
     return -1; // Node is offline or unreachable
   }
 }
@@ -145,3 +158,36 @@ async function getGeoLocation() {
     return { ip: 'unknown', location: 'unknown' };
   }
 }
+
+// Function to get the latest points from the backend
+async function getPoints() {
+  const token = loadToken();
+  if (!token) {
+    console.error('No token available. Cannot fetch points.');
+    return;
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/points`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (!response.ok) throw new Error('Failed to fetch points');
+
+    const data = await response.json();
+    return data.points;
+  } catch (error) {
+    console.error('Error fetching points:', error);
+    return null;
+  }
+}
+
+// Display the latest points
+setInterval(async () => {
+  const points = await getPoints();
+  if (points) {
+    console.log('Latest points:', points);
+  } else {
+    console.log('No points available.');
+  }
+}, 60000); // Check every minute
