@@ -1,0 +1,16 @@
+{
+  "name": "pipenode",
+  "version": "1.0.0",
+  "description": "A Node.js script to test and monitor nodes, send heartbeats, and report results to a backend.",
+  "main": "main.js",
+  "scripts": {
+    "start": "node main.js"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.1"
+  },
+  "keywords": ["node-testing", "monitoring", "heartbeat"],
+  "author": "Your Name",
+  "license": "MIT",
+  "type": "commonjs"
+}
