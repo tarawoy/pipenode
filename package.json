@@ -1,16 +1,18 @@
 {
   "name": "pipenode",
-  "version": "1.0.0",
-  "description": "A Node.js script to test and monitor nodes, send heartbeats, and report results to a backend.",
-  "main": "main.js",
+  "version": "1.2.0",
+  "description": "Node testing script with SOCKS proxy support and fixed User-Agent",
+  "main": "main.js",  // Change this to "main.js" or "multimain.js" based on the primary script you want to run
   "scripts": {
-    "start": "node main.js"
+    "start": "node main.js"  // Change to the appropriate file you want to run
   },
   "dependencies": {
-    "node-fetch": "^3.3.1"
+    "node-fetch": "^3.3.0",
+    "socks-proxy-agent": "^6.0.1"
   },
-  "keywords": ["node-testing", "monitoring", "heartbeat"],
+  "engines": {
+    "node": ">=14.0.0"
+  },
   "author": "Your Name",
-  "license": "MIT",
-  "type": "commonjs"
+  "license": "MIT"
 }
