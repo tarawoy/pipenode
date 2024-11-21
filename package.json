@@ -2,9 +2,9 @@
   "name": "pipenode",
   "version": "1.2.0",
   "description": "Node testing script with SOCKS proxy support and fixed User-Agent",
-  "main": "main.js",  // Change this to "main.js" or "multimain.js" based on the primary script you want to run
+  "main": "main.js",
   "scripts": {
-    "start": "node main.js"  // Change to the appropriate file you want to run
+    "start": "node main.js"
   },
   "dependencies": {
     "node-fetch": "^3.3.0",
