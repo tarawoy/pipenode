@@ -2,9 +2,9 @@
   "name": "node-network-monitor",
   "version": "1.0.0",
   "description": "A Node.js script for monitoring and testing nodes in a network with periodic heartbeat and latency checks.",
-  "main": "index.js",
+  "main": "main.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node main.js"
   },
   "dependencies": {
     "node-fetch": "^3.2.10",
