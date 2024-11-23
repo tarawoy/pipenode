@@ -1,18 +1,18 @@
-const fs = require('fs');
-const fetch = require('node-fetch'); // Import node-fetch if not already installed
-const { setInterval } = require('timers');
+import fetch from 'node-fetch'; // Use `import` for ES modules
+import fs from 'fs/promises'; // Use promises-based API for file handling
 
 const backendUrl = 'https://pipe-network-backend.pipecanary.workers.dev/api/heartbeat';
 const HEARTBEAT_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
 // Read the token from token.txt file
 async function getToken() {
-  return new Promise((resolve, reject) => {
-    fs.readFile('token.txt', 'utf8', (err, data) => {
-      if (err) reject('Failed to read token file');
-      resolve(data.trim());
-    });
-  });
+  try {
+    const data = await fs.readFile('token.txt', 'utf8');
+    return data.trim();
+  } catch (err) {
+    console.error('Failed to read token file:', err);
+    return null;
+  }
 }
 
 // Function to test node latency
@@ -21,9 +21,9 @@ async function testNodeLatency(node) {
   const timeout = 5000;
 
   try {
-    const response = await Promise.race([
+    await Promise.race([
       fetch(`http://${node.ip}`, { mode: 'no-cors' }), // Disable CORS for simple connectivity check
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), timeout))
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), timeout)),
     ]);
 
     return Date.now() - start;
@@ -37,20 +37,24 @@ async function testNodeLatency(node) {
 // Function to report node test result
 async function reportTestResult(node, latency) {
   const token = await getToken();
+  if (!token) {
+    console.warn('No token found. Skipping result reporting.');
+    return;
+  }
 
   try {
     const response = await fetch("https://pipe-network-backend.pipecanary.workers.dev/api/test", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
         node_id: node.node_id,
         ip: node.ip,
         latency: latency,
-        status: latency > 0 ? "online" : "offline"
-      })
+        status: latency > 0 ? "online" : "offline",
+      }),
     });
 
     if (response.ok) {
@@ -66,9 +70,8 @@ async function reportTestResult(node, latency) {
 // Heartbeat Function
 async function startHeartbeat() {
   const token = await getToken();
-
   if (!token) {
-    console.warn("No token found. Skipping heartbeat.");
+    console.warn('No token found. Skipping heartbeat.');
     return;
   }
 
