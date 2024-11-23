@@ -1,18 +1,23 @@
 {
   "name": "pipenode",
-  "version": "1.2.0",
-  "description": "Node testing script with SOCKS proxy support and fixed User-Agent",
+  "version": "1.0.0",
+  "description": "A Node.js application for testing nodes, tracking uptime, sending heartbeats, and updating points for the Pipe Network.",
   "main": "main.js",
   "scripts": {
-    "start": "node main.js"
+    "start": "node main.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "dependencies": {
-    "node-fetch": "^3.3.0",
-    "socks-proxy-agent": "^6.0.1"
-  },
-  "engines": {
-    "node": ">=14.0.0"
-  },
+  "keywords": [
+    "node-testing",
+    "uptime-tracking",
+    "heartbeat",
+    "pipe-network",
+    "nodejs"
+  ],
   "author": "Your Name",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "node-fetch": "^3.3.2"
+  },
+  "type": "module"
 }
