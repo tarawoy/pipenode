@@ -1,18 +1,14 @@
 {
   "name": "pipenode",
   "version": "1.0.0",
-  "description": "Node testing and heartbeat script for Pipe Network",
+  "description": "Node testing and heartbeat scheduling for Pipe Network",
   "main": "main.js",
   "type": "module",
   "scripts": {
     "start": "node main.js"
   },
   "dependencies": {
-    "node-fetch": "^3.2.0"
-  },
-  "devDependencies": {},
-  "engines": {
-    "node": ">=16.0.0"
+    "node-fetch": "^3.3.0"
   },
   "author": "",
   "license": "ISC"
