@@ -1,23 +1,19 @@
 {
   "name": "pipenode",
   "version": "1.0.0",
-  "description": "A Node.js application for testing nodes, tracking uptime, sending heartbeats, and updating points for the Pipe Network.",
+  "description": "Node testing and heartbeat script for Pipe Network",
   "main": "main.js",
+  "type": "module",
   "scripts": {
-    "start": "node main.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node main.js"
   },
-  "keywords": [
-    "node-testing",
-    "uptime-tracking",
-    "heartbeat",
-    "pipe-network",
-    "nodejs"
-  ],
-  "author": "Your Name",
-  "license": "MIT",
   "dependencies": {
-    "node-fetch": "^3.3.2"
+    "node-fetch": "^3.2.0"
   },
-  "type": "module"
+  "devDependencies": {},
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "author": "",
+  "license": "ISC"
 }
