@@ -1,9 +1,12 @@
 import fetch from 'node-fetch';
+import fs from 'fs';
+import path from 'path';
 
 // Define constants
 const backendUrl = 'https://pipe-network-backend.pipecanary.workers.dev/api/heartbeat';
 const HEARTBEAT_INTERVAL = 5 * 60 * 1000; // 5 minutes
 const NODE_TEST_INTERVAL = 30 * 60 * 1000; // 30 minutes
+const tokenFilePath = path.join(__dirname, 'token.json'); // File to store the token
 
 // Function to run the node tests
 async function runNodeTests() {
@@ -46,7 +49,7 @@ async function testNodeLatency(node) {
 
 // Function to report a node's test result to the backend
 async function reportTestResult(node, latency) {
-  const { token } = await getToken();
+  const token = await getToken();
   if (!token) {
     console.warn('No token found. Skipping result reporting.');
     return;
@@ -77,18 +80,31 @@ async function reportTestResult(node, latency) {
   }
 }
 
-// Function to retrieve the user's JWT token from localStorage
+// Read token from the token file
 async function getToken() {
-  return new Promise((resolve) => {
-    chrome.storage.local.get(['token'], (result) => {
-      resolve(result.token);
-    });
-  });
+  try {
+    const tokenData = await fs.promises.readFile(tokenFilePath, 'utf8');
+    const token = JSON.parse(tokenData).token;
+    return token;
+  } catch (error) {
+    console.error('Error reading token:', error);
+    return null;
+  }
+}
+
+// Write token to the token file
+async function saveToken(token) {
+  try {
+    await fs.promises.writeFile(tokenFilePath, JSON.stringify({ token }), 'utf8');
+    console.log('Token saved successfully.');
+  } catch (error) {
+    console.error('Error saving token:', error);
+  }
 }
 
 // Start heartbeat logic
 async function startHeartbeat() {
-  const { token } = await getToken();
+  const token = await getToken();
 
   if (!token) {
     console.warn('No token found. Skipping heartbeat.');
@@ -142,7 +158,7 @@ async function getGeoLocation() {
 // Update points (for example, adding more points for each successful heartbeat)
 async function updatePoints() {
   try {
-    const { token } = await getToken();
+    const token = await getToken();
     if (!token) {
       console.warn('No token found. Skipping points update.');
       return;
