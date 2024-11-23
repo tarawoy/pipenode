@@ -1,193 +1,203 @@
-const fs = require('fs');
+const axios = require('axios');
+const cron = require('node-cron');
+const fs = require('fs').promises;
+const path = require('path');
+const chalk = require('chalk'); // For colorful console output
 
-// Function to dynamically load node-fetch
-const fetch = (...args) =>
-  import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
-// Configuration
-const BACKEND_URL = 'https://pipe-network-backend.pipecanary.workers.dev/api';
-const HEARTBEAT_INTERVAL = 5 * 60 * 1000; // 5 minutes
-const TOKEN_FILE = 'token.txt'; // Path to the file containing the JWT token
-
-// Load the JWT token from the file
-function loadToken() {
-  try {
-    const token = fs.readFileSync(TOKEN_FILE, 'utf8').trim();
-    console.log(`Loaded token: ${token}`);
-    return token;
-  } catch (error) {
-    console.error(`Error reading token file (${TOKEN_FILE}):`, error);
-    return null;
-  }
-}
-
-// Start periodic node tests
-setInterval(runNodeTests, 30 * 60 * 1000); // 30 minutes
-console.log('Node testing setup complete.');
-
-// Function to perform node testing
-async function runNodeTests() {
-  const token = loadToken();
-  if (!token) {
-    console.warn('No token available. Skipping node tests.');
-    return;
-  }
-
-  console.log('Running node tests...');
-
-  try {
-    const response = await fetch(`${BACKEND_URL}/nodes`);
-    const nodes = await response.json();
-
-    if (!nodes || nodes.length === 0) {
-      console.log('No nodes found.');
-      return;
+class NetworkTester {
+    constructor() {
+        this.config = {
+            backendUrl: 'https://pipe-network-backend.pipecanary.workers.dev/api',
+            testInterval: '*/30 * * * *', // Every 30 minutes
+            timeout: 5000,
+            logFile: path.join(__dirname, 'network_test_log.json')
+        };
     }
 
-    for (const node of nodes) {
-      const latency = await testNodeLatency(node);
-      console.log(`Node ${node.node_id} (${node.ip}) latency: ${latency}ms`);
 
-      // Report the test result to the backend
-      await reportTestResult(node, latency, token);
+    // Centralized logging with preview
+    async logTestResult(testResult) {
+        try {
+            // Prepare log entry
+            const logEntry = {
+                timestamp: new Date().toISOString(),
+                ...testResult
+            };
+
+
+            // Read existing logs
+            let logs = [];
+            try {
+                const existingLogs = await fs.readFile(this.config.logFile, 'utf8');
+                logs = JSON.parse(existingLogs);
+            } catch (readError) {
+                // File might not exist yet
+                console.warn('Creating new log file');
+            }
+
+
+            // Add new log entry
+            logs.push(logEntry);
+
+
+            // Limit log size (keep last 100 entries)
+            logs = logs.slice(-100);
+
+
+            // Write logs back to file
+            await fs.writeFile(this.config.logFile, JSON.stringify(logs, null, 2));
+
+
+            // Console preview
+            this.previewTestResult(logEntry);
+        } catch (error) {
+            console.error('Logging error:', error);
+        }
     }
-    console.log('All node tests completed.');
-  } catch (error) {
-    console.error('Error running node tests, reconnecting...', error);
-    setTimeout(runNodeTests, 5000); // Reattempt after 5 seconds
-  }
-}
 
-// Function to test the latency of a single node
-async function testNodeLatency(node) {
-  const start = Date.now();
-  const timeout = 5000;
 
-  console.log(`Testing latency for node ${node.node_id} at IP ${node.ip}...`);
+    // Preview test result in console
+    previewTestResult(result) {
+        console.log(chalk.bold.blue('=== Test Result Preview ==='));
+        console.log(chalk.green(`Timestamp: ${result.timestamp}`));
+        
+        if (result.nodes) {
+            result.nodes.forEach(node => {
+                const statusColor = node.latency > 0 ? chalk.green : chalk.red;
+                console.log(chalk.yellow(`Node ID: ${node.node_id}`));
+                console.log(statusColor(`IP: ${node.ip}`));
+                console.log(statusColor(`Latency: ${node.latency}ms`));
+                console.log(statusColor(`Status: ${node.status}`));
+                console.log('---');
+            });
+        }
 
-  try {
-    await Promise.race([
-      fetch(`http://${node.ip}`, { mode: 'no-cors' }), // Simple connectivity check
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), timeout)),
-    ]);
 
-    const latency = Date.now() - start; // Successful latency measurement
-    console.log(`Node ${node.node_id} latency: ${latency}ms`);
-    return latency;
-  } catch (error) {
-    console.error(`Node ${node.node_id} failed to respond.`, error);
-    return -1; // Node is offline or unreachable
-  }
-}
+        if (result.error) {
+            console.log(chalk.red('Error Details:'), result.error);
+        }
 
-// Function to report a node's test result to the backend
-async function reportTestResult(node, latency, token) {
-  try {
-    const response = await fetch(`${BACKEND_URL}/test`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        node_id: node.node_id,
-        ip: node.ip,
-        latency,
-        status: latency > 0 ? 'online' : 'offline',
-      }),
-    });
 
-    if (response.ok) {
-      console.log(`Reported result for node ${node.node_id}.`);
-    } else {
-      console.error(`Failed to report result for node ${node.node_id}.`);
+        console.log(chalk.bold.blue('=== End of Preview ===\n'));
     }
-  } catch (error) {
-    console.error(`Error reporting result for node ${node.node_id}:`, error);
-  }
-}
 
-// Start the heartbeat logic
-setInterval(async () => {
-  const token = loadToken();
-  if (!token) {
-    console.warn('No token available. Skipping heartbeat.');
-    return;
-  }
 
-  console.log('Sending heartbeat...');
+    // Enhanced node testing with detailed response tracking
+    async runNodeTests() {
+        const testResult = {
+            nodes: []
+        };
 
-  try {
-    const geoInfo = await getGeoLocation();
 
-    const response = await fetch(`${BACKEND_URL}/heartbeat`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        ip: geoInfo.ip,
-        location: geoInfo.location,
-        timestamp: Date.now(),
-      }),
-    });
+        try {
+            // Fetch nodes with detailed error handling
+            const nodesResponse = await this.safeApiCall(() => 
+                axios.get(`${this.config.backendUrl}/nodes`)
+            );
 
-    if (response.ok) {
-      console.log('Heartbeat sent successfully.');
-    } else {
-      console.error('Heartbeat failed:', await response.text());
+
+            if (!nodesResponse || !nodesResponse.data) {
+                throw new Error('No nodes found');
+            }
+
+
+            const nodes = nodesResponse.data;
+
+
+            // Test each node with detailed tracking
+            for (const node of nodes) {
+                const nodeTestResult = await this.testSingleNode(node);
+                testResult.nodes.push(nodeTestResult);
+            }
+
+
+            // Log comprehensive test results
+            await this.logTestResult(testResult);
+
+
+            return testResult;
+        } catch (error) {
+            console.error('Comprehensive node testing failed:', error);
+            await this.logTestResult({ 
+                error: error.message, 
+                stack: error.stack 
+            });
+        }
     }
-  } catch (error) {
-    console.error('Error during heartbeat:', error);
-  }
-}, HEARTBEAT_INTERVAL);
 
-// Fetch IP and Geo-location data
-async function getGeoLocation() {
-  try {
-    const response = await fetch('https://ipapi.co/json/');
-    if (!response.ok) throw new Error('Failed to fetch Geo-location data');
-    const data = await response.json();
-    return {
-      ip: data.ip,
-      location: `${data.city}, ${data.region}, ${data.country_name}`,
-    };
-  } catch (error) {
-    console.error('Geo-location error:', error);
-    return { ip: 'unknown', location: 'unknown' };
-  }
+
+    // Safe API call wrapper with detailed error handling
+    async safeApiCall(apiCall) {
+        try {
+            const response = await apiCall();
+            return {
+                status: response.status,
+                data: response.data,
+                headers: response.headers
+            };
+        } catch (error) {
+            console.error('API Call Error:', {
+                message: error.message,
+                code: error.code,
+                response: error.response ? {
+                    status: error.response.status,
+                    data: error.response.data
+                } : null
+            });
+            return null;
+        }
+    }
+
+
+    // Enhanced single node testing
+    async testSingleNode(node) {
+        const start = Date.now();
+        
+        try {
+            const response = await this.safeApiCall(() => 
+                axios.get(`http://${node.ip}`, { timeout: this.config.timeout })
+            );
+
+
+            const latency = Date.now() - start;
+            
+            return {
+                node_id: node.node_id,
+                ip: node.ip,
+                latency: latency,
+                status: latency > 0 ? 'online' : 'offline',
+                responseDetails: response
+            };
+        } catch (error) {
+            return {
+                node_id: node.node_id,
+                ip: node.ip,
+                latency: -1,
+                status: 'offline',
+                error: error.message
+            };
+        }
+    }
+
+
+    // Setup scheduled testing
+    startScheduledTesting() {
+        console.log(chalk.green('Network Testing Scheduler Activated'));
+        
+        // Run immediately on startup
+        this.runNodeTests();
+
+
+        // Schedule periodic tests
+        cron.schedule(this.config.testInterval, () => {
+            console.log(chalk.yellow('Scheduled Network Test Initiated'));
+            this.runNodeTests();
+        });
+    }
 }
 
-// Function to get the latest points from the backend
-async function getPoints() {
-  const token = loadToken();
-  if (!token) {
-    console.error('No token available. Cannot fetch points.');
-    return;
-  }
 
-  try {
-    const response = await fetch(`${BACKEND_URL}/points`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-
-    if (!response.ok) throw new Error('Failed to fetch points');
-
-    const data = await response.json();
-    return data.points;
-  } catch (error) {
-    console.error('Error fetching points:', error);
-    return null;
-  }
-}
-
-// Display the latest points
-setInterval(async () => {
-  const points = await getPoints();
-  if (points) {
-    console.log('Latest points:', points);
-  } else {
-    console.log('No points available.');
-  }
-}, 60000); // Check every minute
+// Initialize and start the network tester
+const networkTester = new NetworkTester();
+networkTester.startScheduledTesting();
