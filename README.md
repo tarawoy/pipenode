@@ -36,7 +36,7 @@ Goto website [pipenode](https://pipecdn.app/signup?ref=eWFuZWthdG)
 inspect element > console
 The JavaScript code to get the user ID is:
 ```javascript
-copy(JSON.parse(localStorage.getItem("userId")))
+copy(localStorage.getItem("token"));
 ```
 token auto copy to your token.txt. 
 
