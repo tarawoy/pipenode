@@ -31,10 +31,10 @@ Nodejs LTS https://nodejs.org/en/download/package-manager
 7. Done,  running smoothly without proxy.
 
 
-## Code to Get User ID
+## Code to Get TOKEN
 Goto website [pipenode](https://pipecdn.app/signup?ref=eWFuZWthdG)
 inspect element > console
-The JavaScript code to get the user ID is:
+The JavaScript code to get the Token is:
 ```javascript
 copy(localStorage.getItem("token"));
 ```
